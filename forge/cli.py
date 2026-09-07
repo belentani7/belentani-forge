@@ -14,12 +14,12 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-from . import (__version__, capabilities, config, engine, graph, inventory,
-               repairer, skills_router)
+from . import (__version__, capabilities, config, delegation, engine, graph,
+               inventory, repairer, skills_router)
 from .safety import redact
 
 PIPELINE_COMMANDS = {"inventory", "plan", "verify", "deps", "skills", "caps",
-                     "repair", "graph"}
+                     "repair", "graph", "delegate"}
 
 
 def _out(msg: str = "") -> None:
@@ -237,6 +237,77 @@ def cmd_graph(args) -> int:
     return 0
 
 
+def cmd_delegate(args) -> int:
+    from .executor import Executor
+
+    root = Path(args.path).resolve()
+    if not root.is_dir():
+        _out("not a directory: %s" % root)
+        return 1
+
+    name = args.project or root.name
+    bank = delegation.TaskBank()
+    recovered = bank.reset_running()
+    if recovered:
+        _out("recovered %d task(s) orphaned by an earlier run" % recovered)
+
+    added = bank.enqueue(delegation.plan(name, root, chain=args.chain,
+                                         limit_files=args.max_files))
+    queue = bank.pending(limit=args.limit)
+    est = delegation.estimate(queue)
+
+    _out("DELEGATE  %s" % ("APPLYING" if args.apply else "DRY RUN"))
+    _out("-" * 52)
+    _out("project     %s" % name)
+    _out("model       %s" % args.model)
+    _out("chain       %s -> %s" % (args.chain,
+                                   ", ".join(delegation.CHAINS.get(args.chain, []))))
+    _out("newly queued %d" % added)
+    _out("this batch   %d tasks across %d files" % (est["tasks"], est["files"]))
+    for pattern, count in est["by_pattern"].items():
+        _out("    %-16s %d" % (pattern, count))
+
+    if not args.apply:
+        _out("")
+        if queue:
+            sample = queue[0]
+            shown = delegation.Delegator(model=args.model).command(
+                sample, delegation.PATTERNS[sample.pattern])
+            _out("first task would run:")
+            _out("  " + " ".join(('"%s"' % c if " " in c else c) for c in shown))
+        _out("")
+        _out("re-run with --apply to execute")
+        bank.close()
+        return 0
+
+    delegator = delegation.Delegator(
+        model=args.model, executor=Executor(apply=True), timeout=args.timeout)
+
+    done = failed = reverted = 0
+    for i, task in enumerate(queue, 1):
+        bank.mark(task, delegation.State.RUNNING)
+        state, detail = delegator.run_task(task, root)
+        bank.mark(task, state, detail)
+
+        mark = {"done": "+", "failed": "x", "reverted": "~"}.get(state.value, "?")
+        _out("%3d/%d %s %-14s %s" % (i, len(queue), mark, task.pattern, task.file))
+        if state is delegation.State.DONE:
+            done += 1
+        elif state is delegation.State.REVERTED:
+            reverted += 1
+            _out("        %s" % detail)
+        else:
+            failed += 1
+            _out("        %s" % detail)
+
+    _out("")
+    _out("done %d   reverted %d   failed %d" % (done, reverted, failed))
+    _out("bank: %s" % bank.counts())
+    _out("review with: git diff")
+    bank.close()
+    return 0
+
+
 # -------------------------------------------------------------------- parser
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -285,6 +356,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     gr = sub.add_parser("graph", help="draw the ecosystem — JSON, Mermaid, ASCII")
     gr.set_defaults(func=cmd_graph)
+
+    dl = sub.add_parser("delegate",
+                        help="route bulk mechanical work to a cheaper model")
+    dl.add_argument("path", help="project directory")
+    dl.add_argument("--project", help="name for the task bank (default: dir name)")
+    dl.add_argument("--chain", default="document",
+                    choices=sorted(delegation.CHAINS),
+                    help="pattern chain to run")
+    dl.add_argument("--model", default="deepseek/deepseek-v4-pro")
+    dl.add_argument("--limit", type=int, default=25, help="tasks this batch")
+    dl.add_argument("--max-files", type=int, default=None,
+                    help="cap files collected per pattern")
+    dl.add_argument("--timeout", type=int, default=300)
+    dl.add_argument("--apply", action="store_true", help="actually run aider")
+    dl.set_defaults(func=cmd_delegate)
 
     return p
 
