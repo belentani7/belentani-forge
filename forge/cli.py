@@ -14,10 +14,12 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-from . import __version__, capabilities, config, engine, inventory, skills_router
+from . import (__version__, capabilities, config, engine, graph, inventory,
+               repairer, skills_router)
 from .safety import redact
 
-PIPELINE_COMMANDS = {"inventory", "plan", "verify", "deps", "skills", "caps"}
+PIPELINE_COMMANDS = {"inventory", "plan", "verify", "deps", "skills", "caps",
+                     "repair", "graph"}
 
 
 def _out(msg: str = "") -> None:
@@ -189,6 +191,52 @@ def cmd_caps(args) -> int:
     return 0
 
 
+def cmd_repair(args) -> int:
+    inv = inventory.build(track_state=False)
+    targets = [p for p in inv.repair_queue()][:args.limit]
+    repairs = repairer.repair_all(targets, apply=args.apply, limit=args.limit)
+    counts = repairer.summarise(repairs)
+
+    _out("REPAIR  %s" % ("APPLIED" if args.apply else "DRY RUN — nothing written"))
+    _out("-" * 52)
+    _out("projects considered  %d" % len(targets))
+    for outcome, count in sorted(counts.items()):
+        _out("  %-16s %d" % (outcome, count))
+
+    work = repairer.actionable(repairs)
+    if work:
+        _out("")
+        current = None
+        for r in work:
+            if r.project != current:
+                current = r.project
+                _out("  %s" % current)
+            _out("      %-14s %-16s %s" % (r.fix, r.outcome, r.detail))
+
+    path = config.REPORTS_DIR / "REPAIRS.json"
+    path.write_text(redact(json.dumps(
+        {"applied": args.apply, "summary": counts,
+         "repairs": [r.to_dict() for r in repairs]},
+        indent=2, sort_keys=True)), encoding="utf-8")
+
+    if not args.apply:
+        _out("")
+        _out("re-run with --apply to write these files")
+    _emit({"summary": counts}, args.json, path)
+    return 0
+
+
+def cmd_graph(args) -> int:
+    inv = inventory.build(track_state=False)
+    paths = graph.generate_all(inv)
+
+    _out(graph.ascii_tree(inv))
+    _out("")
+    for p in paths:
+        _out("written: %s" % p)
+    return 0
+
+
 # -------------------------------------------------------------------- parser
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -228,6 +276,15 @@ def build_parser() -> argparse.ArgumentParser:
     cp = sub.add_parser("caps", help="audit machine tooling and providers")
     cp.add_argument("--json", action="store_true")
     cp.set_defaults(func=cmd_caps)
+
+    rp = sub.add_parser("repair", help="close structural gaps (create-only)")
+    rp.add_argument("--apply", action="store_true", help="actually write files")
+    rp.add_argument("--limit", type=int, default=20)
+    rp.add_argument("--json", action="store_true")
+    rp.set_defaults(func=cmd_repair)
+
+    gr = sub.add_parser("graph", help="draw the ecosystem — JSON, Mermaid, ASCII")
+    gr.set_defaults(func=cmd_graph)
 
     return p
 

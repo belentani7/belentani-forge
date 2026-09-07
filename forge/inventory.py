@@ -56,8 +56,14 @@ class Inventory:
         return sorted(p.name for p in self.projects if p.frozen)
 
     def repair_queue(self) -> List[Project]:
-        """Projects needing work, worst priority first, then lowest score."""
-        pending = [p for p in self.projects if p.issues and not p.frozen]
+        """Projects needing work, worst priority first, then lowest score.
+
+        Excludes everything :meth:`do_not_touch` covers — frozen, archived and
+        backup projects. An archived repository is read-only upstream, so
+        writing into it produces a diff that can never land.
+        """
+        untouchable = {id(p) for p in self.do_not_touch()}
+        pending = [p for p in self.projects if p.issues and id(p) not in untouchable]
         return sorted(pending, key=lambda p: (
             PRIORITY_ORDER.index(p.priority) if p.priority in PRIORITY_ORDER else 99,
             p.score(),
@@ -78,6 +84,27 @@ class Inventory:
         return sorted((p for p in self.projects
                        if p.frozen or p.archived or p.classification == "BACKUP"),
                       key=lambda p: p.name)
+
+    def nested_repos(self) -> Dict[str, List[str]]:
+        """Git repositories living inside another repository's working tree.
+
+        Unless registered as submodules these show up as untracked noise in the
+        parent, which is the usual cause of a repo reporting hundreds of dirty
+        files. Reported, never auto-resolved: the fix is either a submodule, a
+        ``.gitignore`` entry, or extraction — and that is a design decision.
+        """
+        paths = sorted(((p.path.replace("\\", "/").rstrip("/"), p.name)
+                        for p in self.projects if p.path),
+                       key=lambda kv: len(kv[0]))
+        out: Dict[str, List[str]] = {}
+        for i, (child_path, child_name) in enumerate(paths):
+            # Walk candidates longest-first so a child is attributed to its
+            # nearest enclosing repo, not the outermost one.
+            for parent_path, parent_name in reversed(paths[:i]):
+                if child_path.startswith(parent_path + "/"):
+                    out.setdefault(parent_name, []).append(child_name)
+                    break
+        return {k: sorted(v) for k, v in sorted(out.items())}
 
     def issues_by_priority(self) -> Dict[str, int]:
         counts: Dict[str, int] = {}
@@ -102,6 +129,7 @@ class Inventory:
             "state_changes": self.state_changes,
             "regressions": self.regressions,
             "duplicate_names": self.duplicates,
+            "nested_repos": self.nested_repos(),
             "finished": [p.name for p in self.finished()],
             "needs_work": [p.name for p in self.needs_work()],
             "do_not_touch": [p.name for p in self.do_not_touch()],

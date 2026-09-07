@@ -27,6 +27,8 @@ Autonomous project engine. Scans, classifies, builds, finishes, and reports acro
 | `deps` | Cross-repo dependency map and version conflicts |
 | `skills` | Route a task to the few skills it needs |
 | `caps` | Audit installed CLIs, configured providers and local models |
+| `repair` | Close structural gaps — create-only, `--apply` gated |
+| `graph` | Draw the ecosystem: JSON graphs, Mermaid diagrams, ASCII trees |
 
 ## Safety
 
@@ -48,6 +50,20 @@ and no spurious diffs.
 Project identity is `name + path`, because the same project often exists both
 standalone and vendored inside a monorepo. Those are tracked as distinct entries
 and reported under `duplicate_names` rather than overwriting each other.
+
+`forge repair --apply` is idempotent for the same reason: it only creates files
+that are absent, so running it twice reports every fix as `ALREADY_OK`.
+
+## Diagnostics it reports but will not "fix"
+
+Some findings are design decisions, not defects, so FORGE surfaces them and stops:
+
+- **`nested_repos`** — git repositories inside another repository's working tree.
+  Unless registered as submodules they surface as untracked noise in the parent,
+  which is the usual reason a repo reports hundreds of dirty files. The fix is a
+  submodule, a `.gitignore` entry, or extraction — pick one deliberately.
+- **`duplicate_names`** — one project name at two paths.
+- **`NEEDS_DECISION`** — missing git remote, uncommitted work.
 
 ## Install
 
@@ -129,13 +145,27 @@ forge/
   project_state.py    # Idempotent state tracking with content fingerprints
   inventory.py        # Orchestrates the full pass and the repair plan
 
+  # Action
+  repairer.py         # Create-only fixes; refuses frozen, archived and backup
+  graph.py            # Repository graph, stack matrix, Mermaid, ASCII
+
   # Routing
   skills_router.py    # Task intent → the few skills it needs
   capabilities.py     # Installed CLIs, configured providers, local models
   git_manager.py      # Safe git operations
   reporter.py         # Inventory, status, ecosystem map, report
-tests/                # 243 tests, stdlib + pytest only
+tests/                # 299 tests, stdlib + pytest only
 ```
+
+### Repair
+
+`forge repair` closes structural gaps under three rules: **create only** (never
+overwrites, so a second run is a no-op), **frozen work is untouchable** (frozen,
+archived and BACKUP projects are refused before a path is opened), and **dry run
+by default**.
+
+Anything needing a human decision — configuring a git remote, resolving
+uncommitted work — is reported as `NEEDS_DECISION` rather than guessed at.
 
 The **engine** (`engine.py`) is the battle-tested monolith that handles everything
 from scanning the filesystem to generating HTML dashboards. The **modular package**

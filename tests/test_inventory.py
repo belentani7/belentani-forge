@@ -57,6 +57,89 @@ class TestRepairQueueOrdering:
         assert [p.name for p in inv.repair_queue()] == ["critical", "low"]
 
 
+class TestRepairQueueExclusions:
+    """The queue must never contradict do_not_touch."""
+
+    def inv_with(self, **flags):
+        inv = inventory.Inventory()
+        p = Project(name="target", priority="P4_TESTS_DOCS", issues=["x"],
+                    file_count=5)
+        for key, value in flags.items():
+            setattr(p, key, value)
+        inv.projects = [p]
+        return inv
+
+    def test_archived_excluded(self):
+        assert self.inv_with(archived=True).repair_queue() == []
+
+    def test_backup_excluded(self):
+        assert self.inv_with(classification="BACKUP").repair_queue() == []
+
+    def test_frozen_excluded(self):
+        assert self.inv_with(frozen=True).repair_queue() == []
+
+    def test_ordinary_project_included(self):
+        assert len(self.inv_with().repair_queue()) == 1
+
+    def test_queue_and_do_not_touch_never_overlap(self):
+        inv = inventory.Inventory()
+        inv.projects = [
+            Project(name="archived", archived=True, issues=["x"], file_count=1),
+            Project(name="frozen", frozen=True, issues=["x"], file_count=1),
+            Project(name="backup", classification="BACKUP", issues=["x"], file_count=1),
+            Project(name="normal", issues=["x"], file_count=1),
+        ]
+        queue = {p.name for p in inv.repair_queue()}
+        untouchable = {p.name for p in inv.do_not_touch()}
+        assert not queue & untouchable
+        assert queue == {"normal"}
+
+
+class TestNestedRepos:
+    def nested(self):
+        inv = inventory.Inventory()
+        inv.projects = [
+            Project(name="monorepo", path="/p/monorepo"),
+            Project(name="app-a", path="/p/monorepo/apps/app-a"),
+            Project(name="app-b", path="/p/monorepo/apps/app-b"),
+            Project(name="standalone", path="/p/standalone"),
+        ]
+        return inv
+
+    def test_children_attributed_to_parent(self):
+        assert self.nested().nested_repos() == {"monorepo": ["app-a", "app-b"]}
+
+    def test_standalone_not_reported(self):
+        assert "standalone" not in self.nested().nested_repos()
+
+    def test_flat_layout_reports_nothing(self):
+        inv = inventory.Inventory()
+        inv.projects = [Project(name="a", path="/p/a"), Project(name="b", path="/p/b")]
+        assert inv.nested_repos() == {}
+
+    def test_sibling_prefix_is_not_nesting(self):
+        """/p/app must not be treated as the parent of /p/app-extra."""
+        inv = inventory.Inventory()
+        inv.projects = [Project(name="app", path="/p/app"),
+                        Project(name="app-extra", path="/p/app-extra")]
+        assert inv.nested_repos() == {}
+
+    def test_windows_paths_normalised(self):
+        inv = inventory.Inventory()
+        inv.projects = [Project(name="root", path=r"C:\p\root"),
+                        Project(name="child", path=r"C:\p\root\apps\child")]
+        assert inv.nested_repos() == {"root": ["child"]}
+
+    def test_attributed_to_nearest_parent(self):
+        inv = inventory.Inventory()
+        inv.projects = [
+            Project(name="outer", path="/p/outer"),
+            Project(name="mid", path="/p/outer/mid"),
+            Project(name="leaf", path="/p/outer/mid/leaf"),
+        ]
+        assert inv.nested_repos() == {"outer": ["mid"], "mid": ["leaf"]}
+
+
 class TestExport:
     def test_to_dict_sections(self):
         payload = sample().to_dict()
