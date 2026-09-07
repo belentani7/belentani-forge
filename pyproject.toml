@@ -23,7 +23,7 @@ dependencies = []
 dev = ["pytest>=7"]
 
 [project.scripts]
-forge = "forge.engine:main"
+forge = "forge.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

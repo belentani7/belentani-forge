@@ -1,4 +1,4 @@
 """Entry point for ``python -m forge``."""
-from forge.engine import main
+from forge.cli import main
 
 raise SystemExit(main())
