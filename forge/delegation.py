@@ -3,7 +3,7 @@
 The premise: an expensive model should spend its tokens on judgement, not on
 adding four hundred docstrings. This module defines the work a mid-tier model
 is genuinely precise at, keeps a resumable task bank in SQLite, and drives the
-work through ``aider`` one file at a time.
+work through a direct model API one file at a time.
 
 Three properties make it safe to point at a large codebase:
 
@@ -18,9 +18,13 @@ Three properties make it safe to point at a large codebase:
 from __future__ import annotations
 
 import json
+import os
+import re
 import sqlite3
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from enum import Enum
@@ -28,7 +32,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence
 
 from . import config
-from .executor import Executor, Result
+from .executor import DRY_RUN_CODE, Executor, Result
 from .safety import is_frontend_path, is_frozen_project, redact
 
 DB_PATH = config.FORGE_HOME / "delegation.db"
@@ -298,27 +302,98 @@ class TaskBank:
         self.conn.close()
 
 
+def _extract_code_block(text: str) -> str:
+    """Return the first fenced code block of a model reply, else the reply."""
+    match = re.search(r"```[a-zA-Z0-9+_-]*\n(.*?)```", text, re.DOTALL)
+    return match.group(1) if match else text
+
+
 # ------------------------------------------------------------------- delegation
 @dataclass
 class Delegator:
-    """Drives tasks through aider against a chosen model."""
+    """Drives tasks through a direct model API (no aider, no terminal)."""
     model: str = "deepseek/deepseek-v4-pro"
     executor: Executor = field(default_factory=lambda: Executor(apply=False))
     timeout: int = 300
 
     def command(self, task: Task, pattern: Pattern) -> List[str]:
-        """The exact aider invocation for one task."""
-        return [
-            "aider",
-            "--model", self.model,
-            "--yes",
-            "--no-auto-commits",
-            "--no-stream",
-            "--no-check-update",
-            "--map-tokens", "0",
-            "--message", pattern.instruction,
-            task.file,
-        ]
+        """Human-readable description of the edit (direct API — no aider)."""
+        return ["forge-api", "--model", self.model,
+                "--pattern", pattern.name, "--edit", task.file]
+
+    def edit(self, task: Task, pattern: Pattern, cwd: Path) -> Result:
+        """Edit one file by calling the model API directly.
+
+        Credentials are read only from environment variables and are never
+        printed. Requires ``DEEPSEEK_API_KEY``; honours ``DEEPSEEK_BASE_URL``
+        and ``DEEPSEEK_MODEL`` when present.
+        """
+        key = os.environ.get("DEEPSEEK_API_KEY", "")
+        base = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
+        model = os.environ.get("DEEPSEEK_MODEL", self.model)
+        label = ["forge-api", "edit", task.file]
+
+        if not key:
+            return Result(cmd=label, code=1,
+                          output="missing DEEPSEEK_API_KEY (set it to delegate)")
+        if not self.executor.apply:
+            return Result(cmd=label, code=DRY_RUN_CODE,
+                          output="(dry run — not executed)", dry_run=True)
+
+        path = cwd / task.file
+        try:
+            original = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            return Result(cmd=label, code=1, output=str(exc))
+
+        prompt = (
+            "%s\n\nFile: %s\nReply with ONLY the complete modified file "
+            "content inside a single fenced code block. If no change is "
+            "required, return the file exactly as given.\n\n```\n%s\n```"
+            % (pattern.instruction, task.file, original)
+        )
+        payload = json.dumps({
+            "model": model,
+            "temperature": 0,
+            "stream": False,
+            "messages": [
+                {"role": "system",
+                 "content": "You are a precise code editor. Output only the "
+                            "complete file content in one fenced code block. "
+                            "Change nothing except what the instruction requires."},
+                {"role": "user", "content": prompt},
+            ],
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            base + "/chat/completions",
+            data=payload,
+            headers={"Content-Type": "application/json",
+                     "Authorization": "Bearer " + key},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            return Result(cmd=label, code=exc.code,
+                          output="API %s: %s" % (exc.code, redact(str(exc))[:200]))
+        except (urllib.error.URLError, OSError) as exc:
+            return Result(cmd=label, code=1, output=str(exc)[:200])
+
+        try:
+            content = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError):
+            return Result(cmd=label, code=1, output="unexpected API response shape")
+
+        edited = _extract_code_block(content)
+        if edited.strip() == original.strip():
+            return Result(cmd=label, code=0, output="no change")
+        try:
+            path.write_text(edited, encoding="utf-8")
+        except OSError as exc:
+            return Result(cmd=label, code=1, output=str(exc))
+        return Result(cmd=label, code=0, output="edited")
 
     def verify(self, task: Task, pattern: Pattern) -> Result:
         cmd = [part.replace("{file}", task.file) for part in pattern.verify]
@@ -337,12 +412,11 @@ class Delegator:
         if pattern is None:
             return State.SKIPPED, "unknown pattern"
 
-        edit = self.executor.run(self.command(task, pattern), cwd=cwd,
-                                 timeout=self.timeout)
+        edit = self.edit(task, pattern, cwd)
         if edit.dry_run:
             return State.PENDING, "dry run — not executed"
         if not edit.ok:
-            return State.FAILED, (edit.output or "aider failed").splitlines()[-1][:200]
+            return State.FAILED, (edit.output or "edit failed").splitlines()[-1][:200]
 
         check = self.verify(task, pattern)
         if not check.ok:

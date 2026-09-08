@@ -193,12 +193,13 @@ class TestPlanAndEstimate:
 class TestDelegator:
     def test_command_targets_the_file(self):
         cmd = Delegator().command(task(), delegation.PATTERNS["docstrings"])
-        assert cmd[0] == "aider"
+        assert cmd[0] == "forge-api"
         assert cmd[-1] == "mod.py"
 
-    def test_command_disables_auto_commit(self):
+    def test_command_does_not_invoke_aider(self):
         cmd = Delegator().command(task(), delegation.PATTERNS["docstrings"])
-        assert "--no-auto-commits" in cmd
+        assert "aider" not in cmd
+        assert "--edit" in cmd
 
     def test_command_carries_the_model(self):
         cmd = Delegator(model="deepseek/deepseek-v4-pro").command(
@@ -244,3 +245,41 @@ class TestPatterns:
     def test_every_pattern_verifies_the_file(self):
         for p in delegation.PATTERNS.values():
             assert any("{file}" in part for part in p.verify)
+
+
+class TestDirectAPI:
+    def test_extract_code_block_pulls_fence(self):
+        text = "Sure, here:\n```python\nx = 1\n```\nDone."
+        assert delegation._extract_code_block(text) == "x = 1\n"
+
+    def test_extract_code_block_without_fence_returns_text(self):
+        text = "no fence here"
+        assert delegation._extract_code_block(text) == text
+
+    def test_command_is_not_aider(self):
+        cmd = Delegator().command(
+            Task("demo", "mod.py", "docstrings"),
+            delegation.PATTERNS["docstrings"])
+        assert cmd[0] == "forge-api"
+        assert "aider" not in cmd
+
+    def test_edit_missing_key_returns_failure(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+        f = tmp_path / "mod.py"
+        f.write_text("x = 1\n", encoding="utf-8")
+        d = Delegator(executor=Executor(apply=True))
+        result = d.edit(Task("demo", "mod.py", "docstrings"),
+                        delegation.PATTERNS["docstrings"], tmp_path)
+        assert not result.ok
+        assert "DEEPSEEK_API_KEY" in result.output
+        assert f.read_text(encoding="utf-8") == "x = 1\n"
+
+    def test_edit_dry_run_does_not_touch_file(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test")
+        f = tmp_path / "mod.py"
+        f.write_text("x = 1\n", encoding="utf-8")
+        d = Delegator(executor=Executor(apply=False))
+        result = d.edit(Task("demo", "mod.py", "docstrings"),
+                        delegation.PATTERNS["docstrings"], tmp_path)
+        assert result.dry_run
+        assert f.read_text(encoding="utf-8") == "x = 1\n"
