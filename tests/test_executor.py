@@ -53,6 +53,10 @@ class TestReadOnlyAllowlist:
             "forge.executor.shutil.which",
             lambda _name: pytest.fail("dry-run tried to execute a command"),
         )
+        if cmd[0] == "gh":
+            with pytest.raises(SafetyViolation, match="explicit authorization"):
+                ex.run(cmd)
+            return
         result = ex.run(cmd)
         assert result.dry_run
         assert result.code == DRY_RUN_CODE
@@ -95,6 +99,10 @@ class TestSafety:
     def test_destructive_command_raises(self):
         with pytest.raises(SafetyViolation):
             Executor(apply=True).run(["git", "reset", "--hard"])
+
+    def test_apply_does_not_authorize_gh_repo_delete(self):
+        with pytest.raises(SafetyViolation, match="explicit authorization"):
+            Executor(apply=True).run(["gh", "repo", "delete", "owner/repo"])
 
     def test_authorized_executor_permits(self):
         ex = Executor(apply=False, authorized=True)

@@ -20,7 +20,8 @@ class TestRedact:
         assert out == safety.REDACTED
 
     def test_masks_private_key_header(self):
-        assert safety.REDACTED in safety.redact("-----BEGIN RSA PRIVATE KEY-----")  # gitleaks:allow
+        header = "-----BEGIN RSA PRIVATE KEY-----"  # gitleaks:allow
+        assert safety.REDACTED in safety.redact(header)
 
     def test_keeps_placeholders(self):
         text = 'API_KEY="your_key_here"'
@@ -111,6 +112,33 @@ class TestCommandGuard:
     def test_empty_command_rejected(self):
         with pytest.raises(SafetyViolation, match="empty"):
             safety.guard_command([])
+
+
+class TestGitHubCommandGuard:
+    @pytest.mark.parametrize("cmd", [
+        ["gh", "repo", "delete", "owner/repo"],
+        ["gh", "repo", "archive", "owner/repo"],
+        ["gh", "repo", "create", "owner/new"],
+        ["gh", "repo", "edit", "owner/repo", "--visibility", "public"],
+        ["gh", "auth", "logout"],
+        ["gh", "api", "-X", "DELETE", "repos/owner/repo"],
+        ["gh", "api", "--method=PATCH", "repos/owner/repo"],
+        ["gh", "api", "-f", "name=new", "repos/owner/repo"],
+        ["gh", "api", "-fname=new", "repos/owner/repo"],
+        ["gh", "api", "graphql"],
+    ])
+    def test_mutating_gh_requires_explicit_authorization(self, cmd):
+        with pytest.raises(SafetyViolation, match="explicit authorization"):
+            safety.guard_command(cmd)
+        safety.guard_command(cmd, authorized=True)
+
+    @pytest.mark.parametrize("cmd", [
+        ["gh", "repo", "view", "owner/repo"],
+        ["gh", "api", "repos/owner/repo"],
+        ["gh", "auth", "status"],
+    ])
+    def test_read_only_gh_allowed(self, cmd):
+        safety.guard_command(cmd)
 
 
 class TestSafeToCommit:
