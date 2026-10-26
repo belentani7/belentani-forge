@@ -21,16 +21,20 @@ DRY_RUN_CODE = -1
 # Commands that only observe. They run even when apply=False.
 READ_ONLY = {
     ("git", "status"), ("git", "diff"), ("git", "log"),
-    ("git", "remote"), ("git", "rev-parse"), ("git", "ls-files"),
-    ("git", "show"), ("git", "config"), ("git", "describe"),
-    ("git", "rev-list"),
-    ("gh", "repo"), ("gh", "auth"), ("gh", "api"),
+    ("git", "rev-parse"), ("git", "ls-files"), ("git", "show"),
+    ("git", "describe"), ("git", "rev-list"),
     ("python", "--version"), ("node", "--version"), ("npm", "--version"),
 }
 
-# Subcommands that only observe when given no positional argument.
-# ``git branch`` lists; ``git branch <name>`` creates one.
-CONDITIONAL_READ_ONLY = {("git", "branch"), ("git", "tag"), ("git", "stash")}
+# These are deliberately narrow allowlists. A command that is not proven
+# read-only must remain a dry run, even if its top-level CLI is familiar.
+GIT_BRANCH_LIST_FLAGS = {
+    "-a", "-r", "-v", "-vv", "--all", "--remotes", "--list", "--show-current",
+}
+GIT_CONFIG_SCOPE_FLAGS = {
+    "--global", "--local", "--system", "--show-origin", "--show-scope",
+}
+GIT_DIFF_SIDE_EFFECT_FLAGS = {"--output", "-o", "--ext-diff", "--textconv"}
 
 
 @dataclass
@@ -48,7 +52,9 @@ class Result:
         return self.code == 0
 
     def __str__(self) -> str:
-        tag = "DRY_RUN" if self.dry_run else ("OK" if self.ok else "FAIL(%d)" % self.code)
+        tag = "DRY_RUN" if self.dry_run else (
+            "OK" if self.ok else "FAIL(%d)" % self.code
+        )
         return "%s %s" % (tag, " ".join(self.cmd))
 
 
@@ -67,22 +73,59 @@ class Executor:
     history: List[Result] = field(default_factory=list)
 
     def is_read_only(self, cmd: Sequence[str]) -> bool:
-        """True only when *cmd* cannot change state.
+        """Allow only proven observational command forms in dry-run mode.
 
-        ``git branch`` and friends list when bare but mutate when given a
-        positional argument, so they are checked for one.
+        Subcommands matter: ``gh repo delete``, ``gh api -X DELETE``,
+        ``git remote remove``, ``git config key value`` and bare
+        ``git stash`` all mutate state despite their familiar prefixes.
+        Unknown options fail closed instead of silently bypassing dry-run.
         """
         if not cmd:
             return False
         head = Path(str(cmd[0])).stem.lower()
         sub = str(cmd[1]).lower() if len(cmd) > 1 else ""
+        args = [str(a) for a in cmd[2:]]
 
         if (head, sub) in READ_ONLY:
-            return True
+            return not (head == "git" and any(
+                arg in GIT_DIFF_SIDE_EFFECT_FLAGS or arg.startswith("--output=")
+                for arg in args
+            ))
 
-        if (head, sub) in CONDITIONAL_READ_ONLY:
-            positionals = [a for a in cmd[2:] if not str(a).startswith("-")]
-            return not positionals
+        if head == "git":
+            if sub == "remote":
+                return (
+                    not args or args == ["-v"]
+                    or (len(args) == 2 and args[0] in ("get-url", "show")
+                        and not args[1].startswith("-"))
+                )
+            if sub == "config":
+                remaining = [a for a in args if a not in GIT_CONFIG_SCOPE_FLAGS]
+                return (
+                    remaining in (["--list"], ["-l"])
+                    or (len(remaining) == 2
+                        and remaining[0] in ("--get", "--get-all", "--get-regexp")
+                        and not remaining[1].startswith("-"))
+                )
+            if sub == "branch":
+                return not args or all(a in GIT_BRANCH_LIST_FLAGS for a in args)
+            if sub == "tag":
+                return not args or args in (["-l"], ["--list"])
+            if sub == "stash":
+                return args in (["list"], ["show"])
+
+        if head == "gh":
+            if sub == "repo":
+                return bool(args) and args[0] in ("view", "list")
+            if sub == "auth":
+                return args == ["status"]
+            if sub == "api":
+                # Exactly one REST endpoint means GET. -f/--field, --input,
+                # -X/--method and GraphQL can submit writes, so are excluded.
+                return len(args) == 1 and args[0].startswith((
+                    "repos/", "/repos/", "users/", "/users/",
+                    "orgs/", "/orgs/",
+                ))
 
         return False
 
@@ -93,8 +136,10 @@ class Executor:
         guard_command(cmd, authorized=self.authorized)
 
         if not self.apply and not self.is_read_only(cmd):
-            result = Result(cmd=cmd, code=DRY_RUN_CODE, output="(dry run — not executed)",
-                            dry_run=True, cwd=str(cwd or ""))
+            result = Result(
+                cmd=cmd, code=DRY_RUN_CODE, output="(dry run — not executed)",
+                dry_run=True, cwd=str(cwd or ""),
+            )
             self.history.append(result)
             return result
 
@@ -113,7 +158,9 @@ class Executor:
                 capture_output=True,
                 timeout=timeout or self.timeout,
             )
-            text = (proc.stdout + b"\n" + proc.stderr).decode("utf-8", "replace").strip()
+            text = (proc.stdout + b"\n" + proc.stderr).decode(
+                "utf-8", "replace"
+            ).strip()
             code = proc.returncode
         except subprocess.TimeoutExpired:
             text, code = "timeout after %ss" % (timeout or self.timeout), 124
