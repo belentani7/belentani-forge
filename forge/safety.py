@@ -148,6 +148,41 @@ def guard_command(cmd: Sequence[str], authorized: bool = False) -> None:
                     "destructive git command blocked: git %s" % " ".join(signature))
         return
 
+    if exe == "gh":
+        # --apply is not authorization to delete, publish or transfer repos.
+        dangerous = False
+        if rest[:1] == ["repo"] and len(rest) > 1:
+            dangerous = rest[1] in {
+                "delete", "archive", "create", "fork", "rename", "transfer",
+            } or (rest[1] == "edit" and any(
+                a == "--visibility" or a.startswith("--visibility=")
+                for a in rest[2:]
+            ))
+        elif rest[:1] == ["auth"]:
+            dangerous = len(rest) > 1 and rest[1] in {"logout", "refresh"}
+        elif rest[:1] == ["api"]:
+            args = rest[1:]
+            dangerous = "graphql" in args
+            for index, flag in enumerate(args):
+                if (
+                    flag.startswith("-f")
+                    or flag in {"--field", "--raw-field", "--input"}
+                    or flag.startswith(("--field=", "--raw-field=", "--input="))
+                ):
+                    dangerous = True
+                if flag in {"-x", "--method"}:
+                    if index + 1 >= len(args) or args[index + 1] != "get":
+                        dangerous = True
+                if flag.startswith("--method=") and flag != "--method=get":
+                    dangerous = True
+                if flag.startswith("-x") and len(flag) > 2 and flag != "-xget":
+                    dangerous = True
+        if dangerous and not authorized:
+            raise SafetyViolation(
+                "state-changing GitHub command requires explicit authorization"
+            )
+        return
+
     if exe in DESTRUCTIVE_SHELL and not authorized:
         raise SafetyViolation("destructive shell command blocked: %s" % exe)
 

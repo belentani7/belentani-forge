@@ -26,6 +26,63 @@ class TestDryRun:
         assert res.ok
 
 
+class TestReadOnlyAllowlist:
+    @pytest.mark.parametrize("cmd", [
+        ["gh", "repo", "delete", "owner/repo"],
+        ["gh", "repo", "edit", "--visibility", "public"],
+        ["gh", "api", "-X", "DELETE", "repos/owner/repo"],
+        ["gh", "api", "repos/owner/repo", "-f", "name=changed"],
+        ["gh", "api", "graphql"],
+        ["gh", "auth", "logout"],
+        ["git", "remote", "remove", "origin"],
+        ["git", "remote", "set-url", "origin", "https://invalid.example"],
+        ["git", "config", "--global", "user.name", "changed"],
+        ["git", "stash"],
+        ["git", "stash", "pop"],
+        ["git", "branch", "-D", "main"],
+        ["git", "tag", "new-tag"],
+        ["git", "diff", "--output=out.txt"],
+        ["git", "show", "--ext-diff"],
+    ])
+    def test_mutating_or_side_effect_command_is_never_executed_in_dry_run(
+            self, cmd, monkeypatch):
+        ex = Executor(apply=False)
+        assert not ex.is_read_only(cmd)
+        # The executable lookup must never be reached for a dry run.
+        monkeypatch.setattr(
+            "forge.executor.shutil.which",
+            lambda _name: pytest.fail("dry-run tried to execute a command"),
+        )
+        if cmd[0] == "gh":
+            with pytest.raises(SafetyViolation, match="explicit authorization"):
+                ex.run(cmd)
+            return
+        result = ex.run(cmd)
+        assert result.dry_run
+        assert result.code == DRY_RUN_CODE
+
+    @pytest.mark.parametrize("cmd", [
+        ["git", "status", "--porcelain"],
+        ["git", "remote", "get-url", "origin"],
+        ["git", "remote", "-v"],
+        ["git", "config", "--get", "user.name"],
+        ["git", "config", "--global", "--get", "user.name"],
+        ["git", "branch", "--list"],
+        ["git", "stash", "list"],
+        ["git", "tag", "--list"],
+        ["gh", "repo", "view", "owner/repo"],
+        ["gh", "repo", "list", "owner"],
+        ["gh", "auth", "status"],
+        ["gh", "api", "repos/owner/repo"],
+    ])
+    def test_observational_commands_remain_available(self, cmd):
+        assert Executor(apply=False).is_read_only(cmd)
+
+    def test_unknown_commands_fail_closed(self):
+        assert not Executor(apply=False).is_read_only(["gh", "extension", "exec"])
+        assert not Executor(apply=False).is_read_only(["git", "remote", "update"])
+
+
 class TestResult:
     def test_ok_property(self):
         assert Result(cmd=["x"], code=0).ok
@@ -42,6 +99,10 @@ class TestSafety:
     def test_destructive_command_raises(self):
         with pytest.raises(SafetyViolation):
             Executor(apply=True).run(["git", "reset", "--hard"])
+
+    def test_apply_does_not_authorize_gh_repo_delete(self):
+        with pytest.raises(SafetyViolation, match="explicit authorization"):
+            Executor(apply=True).run(["gh", "repo", "delete", "owner/repo"])
 
     def test_authorized_executor_permits(self):
         ex = Executor(apply=False, authorized=True)
