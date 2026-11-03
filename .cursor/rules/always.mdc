@@ -1,0 +1,34 @@
+---
+alwaysApply: true
+description: Reglas globales del repositorio belentani-forge (ecosistema belentani7)
+globs: ["**/*"]
+---
+
+# Reglas globales — belentani-forge
+
+## Seguridad (siempre)
+- No commitear secretos, API keys, tokens ni credenciales.
+- Ejecutar `gitleaks` antes de cada push.
+- CODEOWNERS: revisión requerida de `@belentani7`.
+- Nunca escribir secretos en archivos ni en el historial de commits.
+
+## Convenciones de commit
+`type(scope): summary` (feat, fix, docs, chore, refactor, test, perf, style).
+
+## Por tipo de archivo
+
+### `**/*.html` — Impeccable
+- N/A: CLI stdlib-only Python (sin HTML fuente). Si se añade dashboard HTML en el reporter: sin gradient text, sin side-stripe borders, sin eyebrow en cada sección, hero heading <= 6rem, `:focus-visible` CANON `#ff073a`, touch targets >= 44px, estados vacío/error/carga.
+
+### `**/*.py` — Python
+- pytest, type hints, docstrings; sin `except` vacío. `safe_commit` rechaza árboles con `.env`, claves privadas o cadenas con aspecto de credencial.
+
+### `**/*.ts`, `**/*.tsx` — TypeScript
+- N/A.
+
+### `**/*.cs` — .NET
+- N/A.
+
+## Pruebas
+- `python -m pytest -q` (directorio `tests/`, 341 tests, stdlib + pytest).
+- `forge doctor`, `forge scan`, `forge finish --apply --commit --max 10` (write solo con `--apply`).
