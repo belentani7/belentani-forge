@@ -2,8 +2,9 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from .models import Project, ForgeReport, Status
+
 from . import config
+from .models import ForgeReport, Status
 
 
 def save_json(data, filename: str) -> Path:
@@ -43,7 +44,7 @@ def generate_status_report(projects: list, github_repos: list,
         f"| BLACK | {len(black)} |",
         f"| FROZEN (no frontend touch) | {len(frozen)} |",
         f"| Total issues | {len(all_issues)} |",
-        f"| Frontend modified | 0 |",
+        "| Frontend modified | 0 |",
         "",
     ]
 
@@ -61,11 +62,11 @@ def generate_status_report(projects: list, github_repos: list,
         issues_str = ", ".join(p.issues[:3]) if p.issues else "critical"
         lines.append(f"- **{p.name}** [{p.category}] score={p.score()} — {issues_str}")
 
-    lines.append(f"\n## FROZEN (frontend untouchable)")
+    lines.append("\n## FROZEN (frontend untouchable)")
     for p in frozen:
         lines.append(f"- **{p.name}**")
 
-    lines.append(f"\n## Repair Queue")
+    lines.append("\n## Repair Queue")
     for prio in ["P0_SECURITY", "P1_NOT_EXECUTABLE", "P2_BACKEND_BROKEN",
                  "P3_TOOLING_BROKEN", "P4_TESTS_DOCS", "P5_ORGANIZATION"]:
         prio_issues = [i for i in all_issues if i.priority == prio]
@@ -74,7 +75,7 @@ def generate_status_report(projects: list, github_repos: list,
             for i in prio_issues[:20]:
                 lines.append(f"- [{i.project}] {i.description}")
 
-    lines.append(f"\n## Category Map")
+    lines.append("\n## Category Map")
     cats = {}
     for p in projects:
         cats.setdefault(p.category, []).append(p.name)
@@ -83,7 +84,7 @@ def generate_status_report(projects: list, github_repos: list,
         for n in sorted(names):
             lines.append(f"- {n}")
 
-    lines.append(f"\n## Tech Stack Map")
+    lines.append("\n## Tech Stack Map")
     stacks = {}
     for p in projects:
         s = p.stack or "unknown"

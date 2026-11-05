@@ -11,11 +11,20 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Optional
 
-from . import (__version__, capabilities, config, engine, graph, inventory,
-               repairer, skills_router)
+from . import (
+    __version__,
+    capabilities,
+    config,
+    engine,
+    graph,
+    inventory,
+    repairer,
+    skills_router,
+)
 from .safety import redact
 
 PIPELINE_COMMANDS = {"inventory", "plan", "verify", "deps", "skills", "caps",

@@ -3,7 +3,6 @@
 The properties that make it safe to run across the whole ecosystem:
 create-only, idempotent, and blind to frozen work.
 """
-from pathlib import Path
 
 from forge import repairer
 from forge.models import GitState, Project

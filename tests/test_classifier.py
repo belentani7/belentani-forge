@@ -1,8 +1,12 @@
-from forge.models import Project, GitState, Status, Classification, Priority
 from forge.classifier import (
-    categorize, classify_status, classify_type, is_frozen,
-    assign_priority, classify_all,
+    assign_priority,
+    categorize,
+    classify_all,
+    classify_status,
+    classify_type,
+    is_frozen,
 )
+from forge.models import Classification, GitState, Priority, Project, Status
 
 
 def _proj(name="test", **kw):

@@ -14,13 +14,12 @@ guessed at.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-from . import config
 from .engine import AUTHOR, ENV_EXAMPLE, GITIGNORE_COMMON, LICENSE_MIT, render
 from .models import Project
 from .safety import SafetyViolation, guard_write, is_frozen_project

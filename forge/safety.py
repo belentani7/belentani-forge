@@ -11,8 +11,9 @@ Nothing here deletes, rotates or rewrites user credentials — detection only.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import List, Optional, Tuple
 
 from . import config
 
@@ -81,7 +82,7 @@ def redact(text: str) -> str:
 
     out = text
     for _name, pattern in SECRET_PATTERNS:
-        def _sub(match: "re.Match[str]") -> str:
+        def _sub(match: re.Match[str]) -> str:
             return match.group(0) if SECRET_SAFE.search(match.group(0)) else REDACTED
         out = pattern.sub(_sub, out)
 

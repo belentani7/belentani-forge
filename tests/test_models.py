@@ -1,6 +1,12 @@
 from forge.models import (
-    Project, GitState, Issue, ForgeReport,
-    Status, Classification, Priority, Category,
+    Category,
+    Classification,
+    ForgeReport,
+    GitState,
+    Issue,
+    Priority,
+    Project,
+    Status,
 )
 
 

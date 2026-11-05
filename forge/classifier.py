@@ -1,6 +1,6 @@
 """Classifier — assigns category, status, classification, priority."""
-from .models import Project, Status, Classification, Category, Priority, Issue
 from . import config
+from .models import Category, Classification, Issue, Priority, Project, Status
 
 
 def categorize(project: Project) -> str:

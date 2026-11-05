@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """BELENTANI FORGE v5.0 - Motor autonomo de proyectos.
 
 Cuatro pilares en un solo archivo, sin dependencias externas (solo stdlib):
@@ -37,9 +36,10 @@ import subprocess
 import sys
 import time
 from collections import Counter, defaultdict
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Tuple
 
 VERSION = "11.0.0"
 
@@ -1332,7 +1332,7 @@ def cmd_organize(args) -> int:
     for cat in sorted(by_cat, key=lambda c: -len(by_cat[c])):
         items = by_cat[cat]
         loc = sum(i["loc"] for i in items)
-        out("  %-14s %3d proyectos  %9s LOC" % (cat, len(items), "{:,}".format(loc)))
+        out("  %-14s %3d proyectos  %9s LOC" % (cat, len(items), f"{loc:,}"))
 
     dupes: List[Dict] = []
     if not args.no_dupes:
@@ -1671,7 +1671,7 @@ def cmd_report(args) -> int:
           "Generado %s por forge v%s." % (ts(), VERSION), "",
           "## Resumen", "",
           "- Proyectos: **%d**" % len(projects),
-          "- Lineas de codigo: **%s**" % "{:,}".format(total_loc),
+          "- Lineas de codigo: **%s**" % f"{total_loc:,}",
           "- Tamano: **%s**" % human(total_size),
           "- Score medio de terminacion: **%.0f%%**" % avg,
           "- Listos (>=80%%): **%d**" % len(listos),
@@ -1709,7 +1709,7 @@ def cmd_report(args) -> int:
             "<h1>BELENTANI FORGE</h1><p class='sub'>%s &middot; v%s</p>" % (ts(), VERSION),
             "<div class='grid'>"]
     for label, val in (("Proyectos", len(projects)),
-                       ("LOC", "{:,}".format(total_loc)),
+                       ("LOC", f"{total_loc:,}"),
                        ("Tamano", human(total_size)),
                        ("Score medio", "%.0f%%" % avg),
                        ("Listos", len(listos)),

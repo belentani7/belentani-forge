@@ -12,7 +12,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set, Tuple
 
 from .models import Project
 
@@ -114,7 +114,7 @@ def parse_pyproject(path: Path) -> List[Dependency]:
     except OSError:
         return deps
 
-    block = re.search(r"^dependencies\s*=\s*\[(.*?)\]", text, re.S | re.M)
+    block = re.search(r"^dependencies\s*=\s*\[(.*?)\]", text, re.DOTALL | re.MULTILINE)
     if block:
         for entry in block.group(1).split(","):
             entry = entry.strip().strip("'\"")
@@ -126,7 +126,7 @@ def parse_pyproject(path: Path) -> List[Dependency]:
                                        version=(match.group(2) or "").strip(),
                                        ecosystem="python"))
 
-    poetry = re.search(r"\[tool\.poetry\.dependencies\](.*?)(?:\n\[|\Z)", text, re.S)
+    poetry = re.search(r"\[tool\.poetry\.dependencies\](.*?)(?:\n\[|\Z)", text, re.DOTALL)
     if poetry:
         for line in poetry.group(1).splitlines():
             if "=" not in line or line.strip().startswith("#"):

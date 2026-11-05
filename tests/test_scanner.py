@@ -1,10 +1,10 @@
 import json
-import tempfile
-from pathlib import Path
 
 from forge.scanner import (
-    load_local_scan, load_github_scan,
-    match_local_to_github, find_orphan_github_repos,
+    find_orphan_github_repos,
+    load_github_scan,
+    load_local_scan,
+    match_local_to_github,
 )
 
 
@@ -81,7 +81,7 @@ def test_load_github_scan_valid(tmp_path):
 
 
 def test_match_local_to_github():
-    from forge.models import Project, GitState
+    from forge.models import GitState, Project
     local = [
         Project(name="repo-a", git=GitState(remote="https://github.com/user/repo-a")),
         Project(name="repo-c", git=GitState(remote="none")),
@@ -99,7 +99,7 @@ def test_match_local_to_github():
 
 
 def test_find_orphan_github_repos():
-    from forge.models import Project, GitState
+    from forge.models import GitState, Project
     local = [
         Project(name="repo-a", git=GitState(remote="https://github.com/user/repo-a")),
     ]

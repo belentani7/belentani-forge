@@ -10,10 +10,11 @@ during the engineering phase.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional
 
 SKILLS_HOME = Path.home() / ".claude" / "skills"
 

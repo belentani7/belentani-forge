@@ -1,8 +1,9 @@
 """Scanner — reads scan data and builds Project objects."""
 import json
 from pathlib import Path
-from .models import Project, GitState
+
 from . import config
+from .models import GitState, Project
 
 
 def load_local_scan(path: Path = None) -> list:

@@ -1,8 +1,5 @@
-import os
-import tempfile
-from pathlib import Path
 
-from forge.models import Project, GitState, Issue, Status, Priority
+from forge.models import GitState, Issue, Priority, Project, Status
 
 
 def _make_projects():

@@ -10,9 +10,10 @@ from __future__ import annotations
 import shutil
 import subprocess
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Optional
 
 from .safety import SafetyViolation, guard_command, redact
 

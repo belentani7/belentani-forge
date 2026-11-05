@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -82,7 +82,7 @@ class StateStore:
     snapshots: Dict[str, Snapshot] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, path: Optional[Path] = None) -> "StateStore":
+    def load(cls, path: Optional[Path] = None) -> StateStore:
         store = cls(path=path or config.FORGE_HOME / "project_state.json")
         if not store.path.exists():
             return store
