@@ -1,0 +1,2 @@
+# Dependencias del proyecto
+# Añadir según sea necesario

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Verifier — the Definition of Done, enforced.
 
 A project is FINISHED only when every check below passes. "Has many files" is

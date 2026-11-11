@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Entry point for ``python -m forge``."""
 from forge.cli import main
 

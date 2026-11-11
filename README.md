@@ -204,3 +204,7 @@ Each project is scored 0-100 based on:
 ## License
 
 MIT
+
+
+## Producto
+Véase `plataforma/OFERTA.md`, `plataforma/precios.json`, `plataforma/ONEPAGER.md`.

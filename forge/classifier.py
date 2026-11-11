@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Classifier — assigns category, status, classification, priority."""
 from . import config
 from .models import Category, Classification, Issue, Priority, Project, Status

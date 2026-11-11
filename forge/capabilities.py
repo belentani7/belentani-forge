@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Capabilities — what tooling this machine can actually use.
 
 Detects installed CLIs, configured model providers and local models, so the

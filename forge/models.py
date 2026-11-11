@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Data models for the FORGE system."""
 from dataclasses import asdict, dataclass, field
 from enum import Enum

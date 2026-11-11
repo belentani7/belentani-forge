@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """CLI — pipeline commands on top of the monolithic engine.
 
 New commands (``inventory``, ``plan``, ``verify``, ``deps``, ``skills``,

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """BELENTANI FORGE — autonomous project engine."""
 
 __version__ = "11.0.0"

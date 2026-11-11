@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests for idempotent project-state tracking."""
 from forge.models import GitState, Project
 from forge.project_state import StateStore, fingerprint, identity

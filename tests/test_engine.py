@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests for the core engine functions."""
 
 from forge.engine import (

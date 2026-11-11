@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Git manager — inspection first, mutation only when it is provably safe.
 
 The rule from the FORGE spec: never destroy local work. Every mutating helper

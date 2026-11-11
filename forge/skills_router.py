@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Skills router — pick the few skills a task needs, not all of them.
 
 Loading every installed skill into every task wastes context and degrades the

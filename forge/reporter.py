@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Reporter — generates inventory, maps, and reports."""
 import json
 from datetime import datetime

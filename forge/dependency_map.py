@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Dependency map — what each project depends on, and what is shared.
 
 Parses the manifests projects actually declare (``requirements.txt``,

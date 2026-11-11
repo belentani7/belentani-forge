@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests for dependency parsing and the ecosystem graph."""
 import json
 

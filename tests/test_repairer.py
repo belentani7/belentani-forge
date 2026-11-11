@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests for the repairer.
 
 The properties that make it safe to run across the whole ecosystem:

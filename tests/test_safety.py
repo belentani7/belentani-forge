@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests for the safety layer."""
 import pytest
 
