@@ -1,18 +1,11 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "builds": [
+  "redirects": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build"
+      "source": "/(.*)",
+      "destination": "https://www.belentani.es/ai-lab",
+      "permanent": false
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/site/$1"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
