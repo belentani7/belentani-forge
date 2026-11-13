@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Configuration for BELENTANI FORGE."""
 import os
 from pathlib import Path

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from forge.models import (
     Category,
     Classification,

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Repairer — closes the gaps FORGE diagnoses, without touching what matters.
 
 Three rules make this safe to point at 48 repositories at once:

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests for the capability audit.
 
 The critical property under test: a credential value must never survive a

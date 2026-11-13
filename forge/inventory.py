@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Inventory — the pipeline that turns raw scans into a decided ecosystem.
 
     SCAN → MAP → CLASSIFY → VERIFY → DEPENDENCIES → STATE → REPORT

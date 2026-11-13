@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests for the CLI entry point."""
 import subprocess
 import sys

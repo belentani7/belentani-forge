@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Project state — idempotent tracking across runs.
 
 ``forge scan`` can run once or a hundred times; if nothing changed on disk the

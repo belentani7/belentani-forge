@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests for safe git operations."""
 import subprocess
 

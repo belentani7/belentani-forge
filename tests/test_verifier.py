@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests for the Definition of Done."""
 from forge import verifier
 from forge.executor import Executor

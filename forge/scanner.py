@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Scanner — reads scan data and builds Project objects."""
 import json
 from pathlib import Path

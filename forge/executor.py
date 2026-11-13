@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Executor — command execution that is read-only until you say otherwise.
 
 Every subprocess in the modular API goes through :class:`Executor`. In the

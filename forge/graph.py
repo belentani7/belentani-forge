@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Graph — draws the ecosystem instead of only describing it.
 
 Emits the artifacts the FORGE spec asks for: a repository graph, a tech-stack

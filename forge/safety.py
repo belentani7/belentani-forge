@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Safety — secret redaction, frozen-frontend guard, destructive command blocking.
 
 Every write path in FORGE routes through this module. The rules are hard:
